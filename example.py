@@ -18,7 +18,7 @@ def count_parameters(mdl):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Create a random model, and evaluate on a snapshot
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-path_to_data = "./datasets/speedy_numpy_file_train.npz"
+path_to_data = "D:\MyGithub\DDP_PyGeom\datasets\speedy_numpy_file_train.npz"
 device_for_loading = "cpu"
 rollout_length = 1
 print('Loading dataset...')
