@@ -100,12 +100,59 @@ model = gnn.TopkMultiscaleGNN(
             name='gnn')
 
 model.to(device)
+num_epochs = 10
+
 
 # Evaluate model
-model.eval()
 data = data_list[0]
-x_scaled = (data.x - data.data_mean)/(data.data_std + SMALL) # scaled input
-x_src, mask = model(x_scaled, data.edge_index, data.pos, data.edge_attr, data.batch)
-x_new = x_scaled + x_src
 
+loss = torch.tensor([0.0])
+loss_scale = torch.tensor([1.0/rollout_length])
+loss_fn = torch.nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
+# Initialize lists to store true and predicted outputs
+true_outputs = []
+predicted_outputs = []
+
+for epoch in range(num_epochs):
+    model.train()  # Set model to training mode
+
+    # Zero the parameter gradients
+    optimizer.zero_grad()
+
+    # Training step
+    x_scaled = (data.x - data.data_mean) / (data.data_std + SMALL)  # Scaled input
+    x_src, mask = model(x_scaled, data.edge_index, data.pos, data.edge_attr, data.batch)
+    x_new = x_scaled + x_src
+
+    target = (data.y[0] - data.data_mean) / (data.data_std + SMALL)  # Scaled target
+
+    loss = loss_scale * loss_fn(x_new, target)  # Compute loss
+
+    loss.backward()  # Backpropagation
+    optimizer.step()  # Optimize the model
+
+    print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')  # Print epoch loss
+
+    # Store true and predicted outputs
+    true_outputs.append(target.detach().cpu().numpy())
+    predicted_outputs.append(x_new.detach().cpu().numpy())
+
+# Convert lists to numpy arrays for easier plotting
+true_outputs = np.array(true_outputs)
+predicted_outputs = np.array(predicted_outputs)
+
+# Plot the true vs. predicted outputs for the last epoch
+plt.figure(figsize=(10, 6))
+plt.plot(true_outputs[-1].flatten(), predicted_outputs[-1].flatten(), 'o', color='blue')
+plt.xlabel('True Output')
+plt.ylabel('Predicted Output')
+plt.show()
+# # plt.plot(true_outputs[-1].flatten(), label='True Output', color='blue')
+# # plt.plot(predicted_outputs[-1].flatten(), label='Predicted Output', color='red', linestyle='--')
+# plt.legend()
+# plt.xlabel('Data Points')
+# plt.ylabel('Value')
+# plt.title('True vs. Predicted Outputs')
+# plt.show()
