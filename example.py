@@ -3,6 +3,7 @@ from typing import Optional, Union, Callable
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+import torch.distributions as tdist
 plt.rcParams.update({'font.size': 22})
 
 import models.gnn as gnn 
@@ -100,9 +101,15 @@ model = gnn.TopkMultiscaleGNN(
             name='gnn')
 
 model.to(device)
-num_epochs = 10
+num_epochs = 500
 
+# %%
+mu = 0.0
+std = 1
+noise_dist = tdist.Normal(torch.tensor([mu]), torch.tensor([std]))
+noise = noise_dist.sample((sample.x.shape[0],))
 
+#%%
 # Evaluate model
 data = data_list[0]
 
@@ -111,9 +118,6 @@ loss_scale = torch.tensor([1.0/rollout_length])
 loss_fn = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-# Initialize lists to store true and predicted outputs
-true_outputs = []
-predicted_outputs = []
 
 for epoch in range(num_epochs):
     model.train()  # Set model to training mode
@@ -123,8 +127,9 @@ for epoch in range(num_epochs):
 
     # Training step
     x_scaled = (data.x - data.data_mean) / (data.data_std + SMALL)  # Scaled input
-    x_src, mask = model(x_scaled, data.edge_index, data.pos, data.edge_attr, data.batch)
-    x_new = x_scaled + x_src
+    x_old = torch.clone(x_scaled) + noise
+    x_src, mask = model(x_old, data.edge_index, data.pos, data.edge_attr, data.batch)
+    x_new = x_old + x_src
 
     target = (data.y[0] - data.data_mean) / (data.data_std + SMALL)  # Scaled target
 
@@ -135,25 +140,35 @@ for epoch in range(num_epochs):
 
     print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')  # Print epoch loss
 
-    # Store true and predicted outputs
-    true_outputs.append(target.detach().cpu().numpy())
-    predicted_outputs.append(x_new.detach().cpu().numpy())
 
-# Convert lists to numpy arrays for easier plotting
-true_outputs = np.array(true_outputs)
-predicted_outputs = np.array(predicted_outputs)
+# %%
+# load test data
+path_to_data = "D:\MyGithub\DDP_PyGeom\datasets\speedy_numpy_file_test.npz"
+data_list, _ = spd.get_pygeom_dataset(
+        path_to_data = path_to_data,
+        device_for_loading = device_for_loading,
+        time_lag = rollout_length, 
+        fraction_valid = 0.0)
 
-# Plot the true vs. predicted outputs for the last epoch
-plt.figure(figsize=(10, 6))
-plt.plot(true_outputs[-1].flatten(), predicted_outputs[-1].flatten(), 'o', color='blue')
-plt.xlabel('True Output')
-plt.ylabel('Predicted Output')
-plt.savefig('true_vs_predicted_outputs.png')
+# Evaluate model on test data
+data = data_list[0]
+x_scaled = (data.x - data.data_mean) / (data.data_std + SMALL)  # Scaled input
+x_old = torch.clone(x_scaled) + noise
+x_src, mask = model(x_old, data.edge_index, data.pos, data.edge_attr, data.batch)
+x_new = x_old + x_src
+target = (data.y[0] - data.data_mean) / (data.data_std + SMALL)  # Scaled target
+loss = loss_scale * loss_fn(x_new, target)  # Compute loss
+
+print(f'Test Loss: {loss.item():.4f}')
+
+#%%
+# Plot results
+fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+ax[0].imshow(x_old[:, 0].reshape(sample.field_shape))
+ax[0].set_title('Input')
+ax[1].imshow(x_new[:, 0].detach().numpy().reshape(sample.field_shape))
+ax[1].set_title('Output')
+ax[2].imshow(target[:, 0].reshape(sample.field_shape))
+ax[2].set_title('Target')
 plt.show()
-# # plt.plot(true_outputs[-1].flatten(), label='True Output', color='blue')
-# # plt.plot(predicted_outputs[-1].flatten(), label='Predicted Output', color='red', linestyle='--')
-# plt.legend()
-# plt.xlabel('Data Points')
-# plt.ylabel('Value')
-# plt.title('True vs. Predicted Outputs')
-# plt.show()
+# %%
