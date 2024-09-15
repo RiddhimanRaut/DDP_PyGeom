@@ -38,15 +38,15 @@ model = gnn.TopkMultiscaleGNN(
             n_mlp_hidden_layers = 2,
             n_mmp_layers = 2,
             n_messagePassing_layers = 2,
-            max_level_mmp = 0,
+            max_level_mmp = 1,
             l_char = l_char,
-            max_level_topk = 0,
+            max_level_topk = 1,
             rf_topk = 16,
             name='gnn')
 model.to('cpu')
 
 # Load the state dictionary
-model_path = r"D:\MyGitHub\DDP_PyGeom\models\gnn.pth"
+model_path = r"D:\MyGitHub\DDP_PyGeom\models\gnn_rollout2_std0.01_maxmmp1_maxtopk1_epochs100.pth"
 state_dict = torch.load(model_path, map_location=device_for_loading)
 model.load_state_dict(state_dict)
 
@@ -60,6 +60,10 @@ def test_sample(sample, model):
     x_src, mask = model(x_old, sample.edge_index, sample.pos, sample.edge_attr, sample.batch)
     x_new = x_old + x_src
     target = (sample.y[0] - sample.data_mean)/(sample.data_std + SMALL)
+
+    loss_fn = torch.nn.MSELoss()
+    loss = loss_fn(x_new, target)
+    print(f'Loss: {loss.item():.4f}')
     return x_new, target
 
 sample = test_data_list[0]
@@ -73,7 +77,9 @@ ax[0].imshow(f_plt)
 ax[0].set_title('Model prediction')
 ax[1].imshow(target[:,0].reshape(sample.field_shape))
 ax[1].set_title('Target')
-plt.savefig(r'D:\MyGitHub\DDP_PyGeom\results\prediction_without_TopK.png', 
+# plt.savefig(r'D:\MyGitHub\DDP_PyGeom\results\prediction_without_TopK.png', 
+#             dpi = 600, bbox_inches = 'tight')
+plt.savefig(r'D:\MyGitHub\DDP_PyGeom\results\prediction_with_TopK_model_maxtopk1_100epochs_maxmmp_1.png', 
             dpi = 600, bbox_inches = 'tight')
 plt.show()
 

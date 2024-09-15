@@ -156,7 +156,7 @@ x_scaled = (data.x - data.data_mean) / (data.data_std + SMALL)  # Scaled input
 x_old = torch.clone(x_scaled) + noise
 x_src, mask = model(x_old, data.edge_index, data.pos, data.edge_attr, data.batch)
 x_new = x_old + x_src
-target = (data.y[0] - data.data_mean) / (data.data_std + SMALL)  # Scaled target
+target = (data.y - data.data_mean) / (data.data_std + SMALL)  # Scaled target
 loss = loss_scale * loss_fn(x_new, target)  # Compute loss
 
 print(f'Test Loss: {loss.item():.4f}')
