@@ -641,7 +641,8 @@ class MultiscaleMessagePassingLayer(torch.nn.Module):
         self.l_char = l_char
         coarsen_factor = 2 
 
-        # lengthscales for levels 
+        # lengthscales for levels
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.lengthscales = torch.zeros(self.n_levels)
         self.lengthscales[0] = self.l_char
         for i in range(1,self.n_levels):
